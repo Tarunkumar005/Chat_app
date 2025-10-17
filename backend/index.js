@@ -150,6 +150,53 @@ app.post('/api/friend-requests/send', async (req, res) => {
     }
 });
 
+// REMOVE FRIEND ROUTE
+app.post('/api/friends/remove', async (req, res) => {
+    const userId = req.headers['x-user-id'];
+    const { friendId } = req.body;
+
+    if (!friendId) {
+        return res.status(400).json({ message: 'Friend ID is required.' });
+    }
+
+    try {
+        // Remove friend from the current user's list
+        await User.findByIdAndUpdate(userId, { $pull: { friends: friendId } });
+
+        // Remove the current user from the friend's list
+        await User.findByIdAndUpdate(friendId, { $pull: { friends: userId } });
+        
+        // Delete the entire conversation
+        await Message.deleteMany({
+            $or: [
+                { sender: userId, recipient: friendId },
+                { sender: friendId, recipient: userId }
+            ]
+        });
+
+        // ✨ THE FIX: Delete the original friend request document
+        await FriendRequest.deleteOne({
+            $or: [
+                { sender: userId, recipient: friendId },
+                { sender: friendId, recipient: userId }
+            ]
+        });
+        
+        // Notify the removed friend in real-time if they are online
+        const removedFriend = await User.findById(friendId);
+        if (removedFriend?.socketId) {
+            io.to(removedFriend.socketId).emit('friend_removed', {
+                removedById: userId,
+            });
+        }
+
+        res.json({ message: 'Friend and conversation removed successfully.' });
+    } catch (error) {
+        console.error("Error removing friend:", error);
+        res.status(500).json({ message: 'Server error while removing friend.' });
+    }
+});
+
 app.get('/api/friend-requests/pending', async (req, res) => {
     const userId = req.headers['x-user-id'];
     try {
