@@ -64,12 +64,65 @@ export default function ChatWindow({ chatUser, onBack }) {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [messages]);
 
-    const handleSendMessage = (e) => { /* ... (Same as before) ... */ };
-    const handleDeleteMessage = async (messageId) => { /* ... (Same as before) ... */ };
-    const handleUpdateMessage = async (messageId) => { /* ... (Same as before) ... */ };
-    const startEditing = (message) => { /* ... (Same as before) ... */ };
-    const cancelEditing = () => { /* ... (Same as before) ... */ };
+    // Handler functions for message actions
+    const handleSendMessage = (e) => {
+        e.preventDefault();
+        if (newMessage.trim() === '' || !user) return;
 
+        const optimisticMessage = {
+            _id: `temp-${Date.now()}`,
+            sender: { _id: user.id, username: user.username },
+            content: newMessage,
+            timestamp: new Date().toISOString(),
+            edited: false,
+        };
+        setMessages(prev => [...prev, optimisticMessage]);
+        
+        socket.emit('private_message', {
+            recipientId: chatUser._id,
+            content: newMessage,
+        });
+
+        setNewMessage('');
+    };
+
+    const handleDeleteMessage = async (messageId) => {
+        if (window.confirm('Are you sure you want to delete this message?')) {
+            try {
+                setMessages(prev => prev.filter(msg => msg._id !== messageId));
+                await axios.delete(`${API_URL}/api/messages/${messageId}`, {
+                    headers: { 'x-user-id': user.id }
+                });
+            } catch (error) {
+                console.error("Failed to delete message:", error);
+            }
+        }
+    };
+
+    const handleUpdateMessage = async (messageId) => {
+        try {
+            const { data: updatedMessage } = await axios.put(`${API_URL}/api/messages/${messageId}`, 
+                { content: editText },
+                { headers: { 'x-user-id': user.id } }
+            );
+            setMessages(prev => prev.map(msg => msg._id === messageId ? updatedMessage : msg));
+            setEditingMessageId(null);
+            setEditText('');
+        } catch (error) {
+            console.error("Failed to update message:", error);
+        }
+    };
+
+    const startEditing = (message) => {
+        setEditingMessageId(message._id);
+        setEditText(message.content);
+    };
+    
+    const cancelEditing = () => {
+        setEditingMessageId(null);
+        setEditText('');
+    };
+    
     return (
         <div className="flex flex-col h-full bg-gray-50">
             <header className="p-4 bg-white border-b border-gray-200 flex items-center gap-4 flex-shrink-0">
