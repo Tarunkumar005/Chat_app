@@ -5,7 +5,8 @@ import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import { UserPlus, Search, X, Check, LogOut, MessageSquare } from 'lucide-react';
 
-const API_URL = 'http://localhost:8000';
+// const API_URL = 'http://localhost:8000';
+const API_URL = 'https://chat-app-api-fmcc.onrender.com'; // Your backend URL
 
 export default function Sidebar({ onSelectChat }) {
     const { user, logout, socket } = useAuth();
