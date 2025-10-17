@@ -5,8 +5,7 @@ import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Send, Trash2, Edit, X, Check, Clock } from 'lucide-react';
 
-// const API_URL = 'http://localhost:8000';
-const API_URL = 'https://chat-app-api-fmcc.onrender.com'; // Your backend URL
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 export default function ChatWindow({ chatUser }) {
     const { user, socket } = useAuth();

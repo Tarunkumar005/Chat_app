@@ -4,8 +4,7 @@ import axios from 'axios';
 import { io } from 'socket.io-client';
 
 const AuthContext = createContext(null);
-// const API_URL = 'http://localhost:8000'; // Your backend URL
-const API_URL = 'https://chat-app-api-fmcc.onrender.com'; // Your backend URL
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
