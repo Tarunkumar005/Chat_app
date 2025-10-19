@@ -7,7 +7,7 @@ import { UserPlus, Search, X, Check, LogOut, MessageSquare, UserX } from 'lucide
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
-export default function Sidebar({ onSelectChat }) {
+export default function Sidebar({ onSelectChat, currentSelectedChat }) { // Accept prop
     const { user, logout, socket } = useAuth();
     const [friends, setFriends] = useState([]);
     const [pendingRequests, setPendingRequests] = useState([]);
@@ -65,15 +65,30 @@ export default function Sidebar({ onSelectChat }) {
             const api = getApi();
             if (!api) return;
             const delayDebounceFn = setTimeout(async () => {
-                const { data } = await api.get(`${API_URL}/api/users?term=${searchTerm}`);
-                setSearchResults(data);
+                try {
+                    const { data } = await api.get(`${API_URL}/api/users?term=${searchTerm}`);
+                    const exactMatch = data.find(u => u.username.toLowerCase() === searchTerm.toLowerCase());
+                    setSearchResults(exactMatch ? [exactMatch] : []);
+                    if (!exactMatch && searchTerm.length > 1) { // Only show 'no match' if searching
+                        setSearchError('No exact match found.');
+                        setTimeout(() => setSearchError(''), 3000);
+                    } else {
+                        setSearchError('');
+                    }
+                } catch (error) {
+                    console.error("Failed to search users:", error);
+                    setSearchResults([]);
+                    setSearchError('Error searching users.');
+                    setTimeout(() => setSearchError(''), 3000);
+                }
             }, 300);
             return () => clearTimeout(delayDebounceFn);
         } else {
             setSearchResults([]);
+            setSearchError('');
         }
     }, [searchTerm, getApi]);
-    
+
     const sendFriendRequest = async (recipientId) => {
         const api = getApi();
         if (!api) return;
@@ -107,6 +122,15 @@ export default function Sidebar({ onSelectChat }) {
                 console.error("Failed to remove friend", error);
                 fetchUserData();
             }
+        }
+    };
+
+    // ✨ New handler for clicking a friend
+    const handleFriendClick = (friend) => {
+        if (currentSelectedChat?._id === friend._id) {
+            onSelectChat(null); // Deselect if already selected
+        } else {
+            onSelectChat(friend); // Select if not selected
         }
     };
 
@@ -160,17 +184,31 @@ export default function Sidebar({ onSelectChat }) {
                  <h2 className="text-sm font-semibold text-gray-500 mb-2">Friends ({friends.length})</h2>
                  <div className="space-y-1">
                      <AnimatePresence>
-                     {friends.map(friend => (
-                         <motion.div key={friend._id} layout initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="group flex items-center justify-between w-full text-left p-2 rounded-lg hover:bg-indigo-50 transition-colors">
-                            <button onClick={() => onSelectChat(friend)} className="flex items-center flex-grow truncate">
-                                <MessageSquare size={18} className="mr-3 text-gray-400 flex-shrink-0" />
-                                <span className="truncate">{friend.username}</span>
+                     {friends.map(friend => {
+                         // ✨ Check if the current friend is selected
+                         const isSelected = currentSelectedChat?._id === friend._id;
+                         return (
+                         <motion.div 
+                             key={friend._id} 
+                             layout 
+                             initial={{ opacity: 0 }} 
+                             animate={{ opacity: 1 }} 
+                             exit={{ opacity: 0 }} 
+                             // ✨ Apply conditional styling
+                             className={`group flex items-center justify-between w-full text-left p-2 rounded-lg transition-colors ${
+                                 isSelected ? 'bg-indigo-100' : 'hover:bg-indigo-50'
+                             }`}
+                         >
+                            {/* ✨ Use the new click handler */}
+                            <button onClick={() => handleFriendClick(friend)} className="flex items-center flex-grow truncate">
+                                <MessageSquare size={18} className={`mr-3 flex-shrink-0 ${isSelected ? 'text-indigo-600' : 'text-gray-400'}`} />
+                                <span className={`truncate ${isSelected ? 'font-semibold text-indigo-800' : ''}`}>{friend.username}</span>
                             </button>
                             <button onClick={() => handleRemoveFriend(friend._id)} className="opacity-0 group-hover:opacity-100 p-1 text-red-400 hover:text-red-600 hover:bg-red-100 rounded-full transition-opacity" title="Remove friend">
                                 <UserX size={16} />
                             </button>
                          </motion.div>
-                     ))}
+                     )})}
                      </AnimatePresence>
                  </div>
             </div>
